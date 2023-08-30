@@ -116,7 +116,7 @@ a:visited {
 .form {
   background-color: var(--color-dark--2);
   border-radius: 5px;
-  padding: 1.5rem 2.75rem;
+  padding: 1rem 2rem;
   margin-bottom: 1.75rem;
 
   display: grid;
