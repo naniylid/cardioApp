@@ -17,13 +17,25 @@ class Workout {
     this.distance = distance; //km
     this.duration = duration; //min
   }
+
+  _setDescriptio() {
+    this.type === 'running'
+      ? (this.description = `Пробежка ${new Intl.DateTimeFormat('ru-Ru').format(
+          this.date
+        )}`)
+      : (this.description = `Велотренировка ${new Intl.DateTimeFormat(
+          'ru-Ru'
+        ).format(this.date)}`);
+  }
 }
 
 class Running extends Workout {
+  type = 'running';
   constructor(coords, distance, duration, temp) {
     super(coords, distance, duration);
     this.temp = temp;
     this.calculatePace();
+    this._setDescriptio();
   }
 
   //min/km
@@ -33,10 +45,12 @@ class Running extends Workout {
 }
 
 class Cycling extends Workout {
+  type = 'cycling';
   constructor(coords, distance, duration, climb) {
     super(coords, distance, duration);
     this.climb = climb;
     this.calculateSpeed();
+    this._setDescriptio();
   }
   //km/h
   calculateSpeed() {
@@ -47,6 +61,7 @@ class Cycling extends Workout {
 class App {
   #map;
   #mapEvent;
+  #workouts = [];
 
   constructor() {
     this._getPosition();
@@ -93,6 +108,14 @@ class App {
     inputDistance.focus();
   }
 
+  _hideForm() {
+    inputDistance.value =
+      inputDuration.value =
+      inputTemp.value =
+      inputClimb.value =
+        '';
+    form.classList.add('hidden');
+  }
   _toggleClimbField() {
     inputClimb.closest('.form__row').classList.toggle('form__row--hidden');
     inputTemp.closest('.form__row').classList.toggle('form__row--hidden');
@@ -105,6 +128,8 @@ class App {
     const areNumbersPositive = (...numbers) => numbers.every(num => num > 0);
 
     e.preventDefault();
+    const { lat, lng } = this.#mapEvent.latlng;
+    let workout;
 
     //Получить данные из формы
     const type = inputType.value;
@@ -120,6 +145,8 @@ class App {
         !areNumbersPositive(distance, duration, temp)
       )
         return alert('Введите положительное число!');
+
+      workout = new Running([lat, lng], distance, duration, temp);
     }
 
     //Если велотренировка = Cycling
@@ -131,13 +158,25 @@ class App {
         !areNumbersPositive(distance, duration)
       )
         return alert('Введите положительное число!');
+
+      workout = new Cycling([lat, lng], distance, duration, climb);
     }
 
     //Добавить новый объект в массив тренировок
+    this.#workouts.push(workout);
+    console.log(workout);
 
     //Отобразить тренировку на карте
-    const { lat, lng } = this.#mapEvent.latlng;
-    L.marker([lat, lng])
+    this._displayWorkout(workout);
+
+    //Отобразить тренировку в списке
+    this._displayWorkoutOnSidebar(workout);
+
+    //Спрятать форму и очистить поля ввода данных
+    this._hideForm();
+  }
+  _displayWorkout(workout) {
+    L.marker(workout.coords)
       .addTo(this.#map)
       .bindPopup(
         L.popup({
@@ -145,21 +184,62 @@ class App {
           minWidth: 100,
           autoClose: false,
           closeOnClick: false,
-          className: 'running-popup',
+          className: `${workout.type}-popup`,
         })
       )
-      .setPopupContent('Тренировка')
+      .setPopupContent(
+        `${workout.type === 'running' ? '🏃' : '🚵‍♂️'} ${workout.description}`
+      )
       .openPopup();
-    //Отобразить тренировку в списке
+  }
 
-    //Спрятать форму и очистить поля ввода данных
+  _displayWorkoutOnSidebar(workout) {
+    let html = `
+    <li class="workout workout--${workout.type}" data-id="${workout.id}">
+          <h2 class="workout__title">${workout.description}</h2>
+          <div class="workout__details">
+            <span class="workout__icon">${
+              workout.type === 'running' ? '🏃' : '🚵‍♂️'
+            }</span>
+            <span class="workout__value">${workout.distance}</span>
+            <span class="workout__unit">км</span>
+          </div>
+          <div class="workout__details">
+            <span class="workout__icon">⏱</span>
+            <span class="workout__value">${workout.duration}</span>
+            <span class="workout__unit">мин</span>
+          </div> `;
 
-    //Очистка полей ввода данных
-    inputDistance.value =
-      inputDuration.value =
-      inputTemp.value =
-      inputClimb.value =
-        '';
+    if (workout.type === 'running') {
+      html += ` 
+          <div class="workout__details">
+            <span class="workout__icon">📏⏱</span>
+            <span class="workout__value">${workout.pace.toFixed(2)}</span>
+            <span class="workout__unit">мин/км</span>
+          </div>
+          <div class="workout__details">
+            <span class="workout__icon">👟⏱</span>
+            <span class="workout__value">${workout.temp}</span>
+            <span class="workout__unit">шаг/мин</span>
+          </div>
+          </li> `;
+    }
+
+    if (workout.type === 'cycling') {
+      html += `
+      <div class="workout__details">
+            <span class="workout__icon">📏⏱</span>
+            <span class="workout__value">${workout.speed.toFixed(2)}</span>
+            <span class="workout__unit">км/ч</span>
+          </div>
+      <div class="workout__details">
+            <span class="workout__icon">🏔</span>
+            <span class="workout__value">${workout.climb}</span>
+            <span class="workout__unit">м</span>
+      </div>
+      </li>`;
+    }
+    form.insertAdjacentHTML('afterend', html);
   }
 }
 const app = new App();
