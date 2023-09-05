@@ -64,11 +64,11 @@ class App {
   #workouts = [];
 
   constructor() {
-    this._getPosition();
-    form.addEventListener('submit', this._newWorkout.bind(this));
-
-    //Переключение пробежка и вело
-    inputType.addEventListener('change', this._toggleClimbField);
+    this._getPosition(); //переключение местоположения
+    this._getLocalStorageData(); //получение данных из local storage
+    form.addEventListener('submit', this._newWorkout.bind(this)); //добавление обработчиков события
+    inputType.addEventListener('change', this._toggleClimbField); //Переключение пробежка и вело
+    containerWorkouts.addEventListener('click', this._moveToWorkout.bind(this));
   }
 
   _getPosition() {
@@ -100,6 +100,11 @@ class App {
 
     //Обработка кликов на карте
     this.#map.on('click', this._showForm.bind(this));
+
+    //Отображение тренировок из local storage на карте
+    this.#workouts.forEach(workout => {
+      this._displayWorkout(workout);
+    });
   }
 
   _showForm(e) {
@@ -174,6 +179,9 @@ class App {
 
     //Спрятать форму и очистить поля ввода данных
     this._hideForm();
+
+    //Добавить все тренировки в локальное хранилище
+    this._addWorkoutsToLocalStorage();
   }
   _displayWorkout(workout) {
     L.marker(workout.coords)
@@ -240,6 +248,40 @@ class App {
       </li>`;
     }
     form.insertAdjacentHTML('afterend', html);
+  }
+  _moveToWorkout(e) {
+    const workoutElement = e.target.closest('.workout');
+    //console.log(workoutElement);
+    if (!workoutElement) return;
+
+    const workout = this.#workouts.find(
+      item => item.id === workoutElement.dataset.id
+    );
+    this.#map.setView(workout.coords, 13, {
+      animate: true,
+      pan: {
+        duration: 1,
+      },
+    });
+  }
+
+  _addWorkoutsToLocalStorage() {
+    localStorage.setItem('workouts', JSON.stringify(this.#workouts));
+  }
+
+  _getLocalStorageData() {
+    const data = JSON.parse(localStorage.getItem('workouts'));
+    if (!data) return;
+
+    this.#workouts = data;
+    this.#workouts.forEach(workout => {
+      this._displayWorkoutOnSidebar(workout);
+    });
+  }
+
+  reset() {
+    localStorage.removeItem('workouts');
+    location.reload();
   }
 }
 const app = new App();
